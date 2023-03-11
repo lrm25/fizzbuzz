@@ -2,10 +2,14 @@ package fizzbuzz
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
 )
+
+const ENV_FIZZ = "FIZZ"
+const ENV_BUZZ = "BUZZ"
 
 type FizzbuzzCommand struct {
 	Count *int `json:"count"`
@@ -15,10 +19,27 @@ type FizzbuzzResponse struct {
 	Message string `json:"message"`
 }
 
-func getFizzbuzzString(count int) string {
+type FizzbuzzServer struct {
+	port      string
+	clientUrl string
+}
+
+func NewFizzbuzzServer(port, clientUrl string) *FizzbuzzServer {
+	return &FizzbuzzServer{
+		port:      port,
+		clientUrl: clientUrl,
+	}
+}
+
+func (f *FizzbuzzServer) Start() {
+	http.HandleFunc("/fizzbuzz", f.handleFizzbuzz)
+	http.ListenAndServe(":"+f.port, nil)
+}
+
+func (f *FizzbuzzServer) getFizzbuzzString(count int) string {
 	fizzbuzzStr := ""
-	fizzStr := os.Getenv("FIZZ")
-	buzzStr := os.Getenv("BUZZ")
+	fizzStr := os.Getenv(ENV_FIZZ)
+	buzzStr := os.Getenv(ENV_BUZZ)
 	if count%3 == 0 {
 		fizzbuzzStr += fizzStr
 	}
@@ -28,10 +49,16 @@ func getFizzbuzzString(count int) string {
 	return fizzbuzzStr
 }
 
-func HandleFizzbuzz(w http.ResponseWriter, r *http.Request) {
+func (f *FizzbuzzServer) handleError(w http.ResponseWriter, errCode int, errString string) {
+	fmt.Println(errString)
+	w.WriteHeader(errCode)
+	w.Write([]byte(errString))
+}
+
+func (f *FizzbuzzServer) handleFizzbuzz(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Origin", f.clientUrl)
 	w.Header().Set("Access-Control-Allow-Methods", "OPTIONS,POST")
 
 	if r.Method == http.MethodOptions {
@@ -42,35 +69,32 @@ func HandleFizzbuzz(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		w.Header().Add("Allow", http.MethodOptions)
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write([]byte("Method " + r.Method + " not allowed"))
+		f.handleError(w, http.StatusMethodNotAllowed, "Method "+r.Method+" not allowed")
 		return
 	}
 	contentType := r.Header.Get("Content-Type")
 	if !strings.Contains(contentType, "application/json") {
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		w.Write([]byte("Content type " + contentType + " is not supported"))
+		f.handleError(w, http.StatusUnsupportedMediaType, "Content type "+contentType+" is not supported")
 		return
 	}
+
 	decoder := json.NewDecoder(r.Body)
 	var command FizzbuzzCommand
 	if err := decoder.Decode(&command); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Error unmarshalling JSON: " + err.Error()))
+		f.handleError(w, http.StatusBadRequest, "Error unmarshalling JSON: "+err.Error())
 		return
 	}
 	if command.Count == nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("JSON missing 'count' parameter"))
+		f.handleError(w, http.StatusBadRequest, "JSON missing 'count' parameter")
 		return
 	}
-	replyMessage := FizzbuzzResponse{Message: getFizzbuzzString(*command.Count)}
+	replyMessage := FizzbuzzResponse{Message: f.getFizzbuzzString(*command.Count)}
 	replyBytes, err := json.Marshal(replyMessage)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Error marshalling JSON: " + err.Error()))
+		f.handleError(w, http.StatusInternalServerError, "Error marshalling JSON: "+err.Error())
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(replyBytes))
 }
