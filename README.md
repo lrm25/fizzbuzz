@@ -24,6 +24,4 @@ To run frontend:
 ## Future Improvements (If This Was A Serious Project)
 
 * Prevent GUI from shifting when "Fizz" or "Buzz" appears
-* Make backend URL port customizable
 * Use docker-compose, kubernetes, etc. to deploy/manage simultaneously
-* Add more log messages
