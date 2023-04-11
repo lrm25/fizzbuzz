@@ -33,7 +33,9 @@ func NewFizzbuzzServer(port, clientUrl string) *FizzbuzzServer {
 
 func (f *FizzbuzzServer) Start() {
 	http.HandleFunc("/fizzbuzz", f.handleFizzbuzz)
-	http.ListenAndServe(":"+f.port, nil)
+	if err := http.ListenAndServe(":"+f.port, nil); err != nil {
+		panic("Error starting server on port " + f.port + ": " + err.Error())
+	}
 }
 
 func (f *FizzbuzzServer) getFizzbuzzString(count int) string {
@@ -52,7 +54,9 @@ func (f *FizzbuzzServer) getFizzbuzzString(count int) string {
 func (f *FizzbuzzServer) handleError(w http.ResponseWriter, errCode int, errString string) {
 	fmt.Println(errString)
 	w.WriteHeader(errCode)
-	w.Write([]byte(errString))
+	if _, err := w.Write([]byte(errString)); err != nil {
+		fmt.Println("Error writing error data to response: " + err.Error())
+	}
 }
 
 func (f *FizzbuzzServer) handleFizzbuzz(w http.ResponseWriter, r *http.Request) {
@@ -96,5 +100,7 @@ func (f *FizzbuzzServer) handleFizzbuzz(w http.ResponseWriter, r *http.Request) 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(replyBytes))
+	if _, err = w.Write([]byte(replyBytes)); err != nil {
+		fmt.Println("Error writing reply to response: " + err.Error())
+	}
 }

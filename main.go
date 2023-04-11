@@ -10,7 +10,7 @@ const ENV_CLIENTURL = "FIZZBUZZ_CLIENTURL"
 
 func main() {
 
-	port := os.Getenv("FIZZBUZZ_SERVERPORT")
+	port := os.Getenv(ENV_SERVERPORT)
 	if port == "" {
 		panic("Port environment value not specified")
 	}
